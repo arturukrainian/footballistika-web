@@ -186,6 +186,210 @@
       font-size: 14px;
       color: var(--muted);
     }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .action-btn {
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+    }
+
+    .action-btn.primary {
+      background: linear-gradient(135deg, #9ef01a, #4ed44b);
+      color: #0f1a16;
+      border-color: rgba(158, 240, 26, 0.5);
+    }
+
+    .action-btn:active {
+      transform: translateY(1px);
+    }
+
+    .action-btn.active {
+      border-color: #9ef01a;
+      box-shadow: 0 14px 36px rgba(158, 240, 26, 0.22);
+    }
+
+    .tab-panel {
+      display: grid;
+      gap: 14px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 16px;
+      border: 1px solid var(--card-border);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .carousel {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .match-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .match-title {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .score-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .team-name {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .score-input {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      padding: 10px;
+      font-size: 18px;
+      font-weight: 800;
+      text-align: center;
+      appearance: none;
+      -moz-appearance: textfield;
+    }
+
+    .score-input::-webkit-outer-spin-button,
+    .score-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .submit-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #9ef01a, #4ed44b);
+      color: #0f1a16;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 14px;
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+      box-shadow: 0 14px 36px rgba(158, 240, 26, 0.22);
+      transition: transform 120ms ease;
+    }
+
+    .submit-btn:active {
+      transform: translateY(1px);
+    }
+
+    .tables {
+      display: grid;
+      gap: 12px;
+    }
+
+    .table-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .table-title {
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table th, .table td {
+      font-size: 13px;
+      color: var(--text);
+      padding: 8px 6px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .table th:last-child,
+    .table td:last-child {
+      text-align: right;
+    }
+
+    .table tr.me {
+      background: rgba(158, 240, 26, 0.08);
+      border-radius: 8px;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+      margin: 4px 0;
+    }
   </style>
 </head>
 <body>
@@ -223,6 +427,58 @@
     </div>
     <div class="info-row" id="predictionsInline">Прогнози: —</div>
     <div class="status" id="status"></div>
+    <div class="actions">
+      <button class="action-btn primary active" data-tab="predict">ЗРОБИТИ ПРОГНОЗ</button>
+      <button class="action-btn" data-tab="stats">СТАТИСТИКА</button>
+    </div>
+    <div class="tab-panel" id="tab-predict">
+      <div class="panel">
+        <div class="panel-title">Прогнози до 17:59 за Києвом</div>
+        <div class="muted" id="predictDeadlineText">Прийом прогнозів відкрито.</div>
+        <div id="predictContent" class="hidden">
+          <div class="carousel" id="matchesCarousel">
+            <button class="nav-btn" id="prevMatch" aria-label="Попередній матч">‹</button>
+            <div class="match-card">
+              <div class="match-title" id="matchTitle">Матч —</div>
+              <div class="score-grid">
+                <div class="score-item">
+                  <div class="team-name" id="team1Name">Команда 1</div>
+                  <input id="score1Input" class="score-input" type="number" min="0" max="99" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+                </div>
+                <div class="score-item">
+                  <div class="team-name" id="team2Name">Команда 2</div>
+                  <input id="score2Input" class="score-input" type="number" min="0" max="99" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+                </div>
+              </div>
+              <button id="submitPrediction" class="submit-btn">Надіслати прогноз</button>
+            </div>
+            <button class="nav-btn" id="nextMatch" aria-label="Наступний матч">›</button>
+          </div>
+          <div class="muted" id="predictHelper"></div>
+        </div>
+        <div class="muted" id="noMatchesText">Завантаження матчів...</div>
+      </div>
+    </div>
+    <div class="tab-panel hidden" id="tab-stats">
+      <div class="panel">
+        <div class="panel-title">Статистика</div>
+        <div class="muted">Топ-10 та твій рядок.</div>
+        <div class="tables">
+          <div class="table-card">
+            <div class="table-title">Таблиця балів</div>
+            <div id="leaderboardTable" class="muted">Завантаження...</div>
+          </div>
+          <div class="table-card">
+            <div class="table-title">Влучність прогнозів</div>
+            <div id="resultAccuracyTable" class="muted">Завантаження...</div>
+          </div>
+          <div class="table-card">
+            <div class="table-title">Точність по голам</div>
+            <div id="goalAccuracyTable" class="muted">Завантаження...</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script>
@@ -238,6 +494,36 @@
     const goalAccuracyEl = document.getElementById("goalAccuracy");
     const resultBar = document.getElementById("resultBar");
     const goalBar = document.getElementById("goalBar");
+    const actionButtons = document.querySelectorAll(".action-btn");
+    const tabPanels = {
+      predict: document.getElementById("tab-predict"),
+      stats: document.getElementById("tab-stats"),
+    };
+    const predictDeadlineText = document.getElementById("predictDeadlineText");
+    const predictContent = document.getElementById("predictContent");
+    const noMatchesText = document.getElementById("noMatchesText");
+    const predictHelper = document.getElementById("predictHelper");
+    const matchTitleEl = document.getElementById("matchTitle");
+    const team1NameEl = document.getElementById("team1Name");
+    const team2NameEl = document.getElementById("team2Name");
+    const score1Input = document.getElementById("score1Input");
+    const score2Input = document.getElementById("score2Input");
+    const prevMatchBtn = document.getElementById("prevMatch");
+    const nextMatchBtn = document.getElementById("nextMatch");
+    const submitPredictionBtn = document.getElementById("submitPrediction");
+    const leaderboardTable = document.getElementById("leaderboardTable");
+    const resultAccuracyTable = document.getElementById("resultAccuracyTable");
+    const goalAccuracyTable = document.getElementById("goalAccuracyTable");
+
+    let initDataRaw = "";
+    let currentUser = null;
+    let matchesState = {
+      list: [],
+      index: 0,
+      allowed: true,
+      deadline: "17:59 Europe/Kyiv",
+    };
+    let statsLoaded = false;
 
     function setFallbackInitials(user) {
       const first = (user.first_name || "").trim();
@@ -271,6 +557,7 @@
     }
 
     function renderUser(user) {
+      currentUser = user;
       const fullLabel = [user.first_name, user.last_name].filter(Boolean).join(" ");
       const nameLabel = fullLabel || (user.username ? `@${user.username}` : `id${user.id}`);
       displayNameEl.textContent = nameLabel;
@@ -289,6 +576,21 @@
       } else {
         avatarImg.style.display = "none";
         avatarFallback.style.display = "block";
+      }
+    }
+
+    function switchTab(tab) {
+      actionButtons.forEach((btn) => {
+        const isActive = btn.dataset.tab === tab;
+        btn.classList.toggle("active", isActive);
+        if (isActive && btn.dataset.tab === "predict") btn.classList.add("primary");
+        if (!isActive && btn.dataset.tab === "predict") btn.classList.remove("primary");
+      });
+      Object.entries(tabPanels).forEach(([key, el]) => {
+        el.classList.toggle("hidden", key !== tab);
+      });
+      if (tab === "stats") {
+        ensureStatsLoaded();
       }
     }
 
@@ -323,6 +625,262 @@
       }
     }
 
+    function renderMatchCard() {
+      const { list, index, allowed, deadline } = matchesState;
+      predictDeadlineText.textContent = allowed
+        ? `Прийом прогнозів відкрито до ${deadline}.`
+        : `Дедлайн минув. Прогнози приймаємо до ${deadline}.`;
+
+      if (!list.length) {
+        predictContent.classList.add("hidden");
+        noMatchesText.textContent = allowed
+          ? "Немає матчів для прогнозу."
+          : "Прогнози недоступні: дедлайн минув.";
+        return;
+      }
+      predictContent.classList.remove("hidden");
+      noMatchesText.textContent = "";
+      const match = list[index];
+      matchTitleEl.textContent = `Матч #${match.id}`;
+      team1NameEl.textContent = match.team1;
+      team2NameEl.textContent = match.team2;
+      score1Input.value = "";
+      score2Input.value = "";
+      prevMatchBtn.disabled = list.length <= 1 || index === 0;
+      nextMatchBtn.disabled = list.length <= 1 || index === list.length - 1;
+      submitPredictionBtn.disabled = !allowed;
+      predictHelper.textContent = `Матч ${index + 1} з ${list.length}`;
+      if (!allowed) {
+        predictHelper.textContent = "Дедлайн минув. Спробуй завтра.";
+      }
+    }
+
+    async function loadMatches() {
+      if (!initDataRaw) return;
+      noMatchesText.textContent = "Завантаження матчів...";
+      try {
+        const res = await fetch(`${API_BASE}/api/webapp/matches`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ initData: initDataRaw }).toString(),
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "matches_failed");
+        matchesState.list = data.matches || [];
+        matchesState.index = 0;
+        matchesState.allowed = Boolean(data.prediction_allowed);
+        matchesState.deadline = data.deadline || "17:59 Europe/Kyiv";
+        renderMatchCard();
+      } catch (e) {
+        console.error("matches error:", e);
+        noMatchesText.textContent = "Не вдалося завантажити матчі.";
+        statusEl.textContent = "Помилка матчів: " + (e?.message || "network");
+      }
+    }
+
+    function clampScore(val) {
+      const num = Number(val);
+      if (!Number.isFinite(num) || num < 0) return 0;
+      return Math.min(Math.round(num), 99);
+    }
+
+    async function submitCurrentPrediction() {
+      if (!matchesState.allowed) {
+        predictHelper.textContent = "Дедлайн минув. Спробуй завтра.";
+        return;
+      }
+      if (!matchesState.list.length) return;
+      const match = matchesState.list[matchesState.index];
+      if (score1Input.value === "" || score2Input.value === "") {
+        predictHelper.textContent = "Введи рахунок для обох команд.";
+        return;
+      }
+      const score1 = clampScore(score1Input.value);
+      const score2 = clampScore(score2Input.value);
+      try {
+        submitPredictionBtn.disabled = true;
+        const res = await fetch(`${API_BASE}/api/webapp/prediction`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            initData: initDataRaw,
+            match_id: match.id,
+            score1,
+            score2,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          const err = data.error || "prediction_failed";
+          if (err === "already_predicted") predictHelper.textContent = "Ти вже робив прогноз на цей матч.";
+          else if (err === "deadline_passed") predictHelper.textContent = "Дедлайн минув. Спробуй завтра.";
+          else predictHelper.textContent = "Не вдалося зберегти прогноз.";
+          return;
+        }
+        predictHelper.textContent = `Зберіг ${score1}:${score2} для ${match.team1} vs ${match.team2}.`;
+        matchesState.list.splice(matchesState.index, 1);
+        if (matchesState.index >= matchesState.list.length) {
+          matchesState.index = Math.max(matchesState.list.length - 1, 0);
+        }
+        renderMatchCard();
+      } catch (e) {
+        console.error("prediction error:", e);
+        predictHelper.textContent = "Помилка мережі. Спробуй ще раз.";
+      } finally {
+        submitPredictionBtn.disabled = !matchesState.allowed;
+      }
+    }
+
+    function renderTable(targetEl, rows, userRow, columns) {
+      targetEl.textContent = "";
+      if ((!rows || !rows.length) && !userRow) {
+        targetEl.textContent = "Немає даних.";
+        return;
+      }
+      const table = document.createElement("table");
+      table.className = "table";
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      columns.forEach((col) => {
+        const th = document.createElement("th");
+        th.textContent = col.label;
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      const currentId = currentUser?.id;
+      const appendRow = (row) => {
+        const tr = document.createElement("tr");
+        if (row.user_id === currentId) tr.classList.add("me");
+        columns.forEach((col) => {
+          const td = document.createElement("td");
+          const value = col.format ? col.format(row) : row[col.key];
+          td.textContent = value;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      };
+
+      rows.forEach(appendRow);
+      const userInTop = rows.some((r) => r.user_id === (userRow && userRow.user_id));
+      if (userRow && !userInTop) {
+        const divider = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = columns.length;
+        td.innerHTML = "<hr class='divider'>";
+        divider.appendChild(td);
+        tbody.appendChild(divider);
+        appendRow(userRow);
+      }
+      table.appendChild(tbody);
+      targetEl.appendChild(table);
+    }
+
+    async function loadLeaderboard() {
+      try {
+        const res = await fetch(`${API_BASE}/api/webapp/leaderboard`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ initData: initDataRaw }).toString(),
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "leaderboard_failed");
+        renderTable(
+          leaderboardTable,
+          data.top || [],
+          data.user,
+          [
+            { key: "rank", label: "#" },
+            {
+              key: "username",
+              label: "Користувач",
+              format: (row) => row.username || `id${row.user_id}`,
+            },
+            { key: "points", label: "Бали" },
+          ]
+        );
+      } catch (e) {
+        console.error("leaderboard error:", e);
+        leaderboardTable.textContent = "Не вдалося завантажити таблицю.";
+      }
+    }
+
+    async function loadResultAccuracy() {
+      try {
+        const res = await fetch(`${API_BASE}/api/webapp/result-accuracy`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ initData: initDataRaw }).toString(),
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "result_accuracy_failed");
+        renderTable(
+          resultAccuracyTable,
+          data.top || [],
+          data.user,
+          [
+            { key: "rank", label: "#" },
+            {
+              key: "username",
+              label: "Користувач",
+              format: (row) => row.username || `id${row.user_id}`,
+            },
+            {
+              key: "result_accuracy_percent",
+              label: "Точність",
+              format: (row) => `${Math.round(row.result_accuracy_percent)}%`,
+            },
+          ]
+        );
+      } catch (e) {
+        console.error("result accuracy error:", e);
+        resultAccuracyTable.textContent = "Не вдалося завантажити дані.";
+      }
+    }
+
+    async function loadGoalAccuracy() {
+      try {
+        const res = await fetch(`${API_BASE}/api/webapp/goal-accuracy`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ initData: initDataRaw }).toString(),
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "goal_accuracy_failed");
+        renderTable(
+          goalAccuracyTable,
+          data.top || [],
+          data.user,
+          [
+            { key: "rank", label: "#" },
+            {
+              key: "username",
+              label: "Користувач",
+              format: (row) => row.username || `id${row.user_id}`,
+            },
+            {
+              key: "goal_accuracy_percent",
+              label: "Точність",
+              format: (row) => `${Math.round(row.goal_accuracy_percent)}%`,
+            },
+          ]
+        );
+      } catch (e) {
+        console.error("goal accuracy error:", e);
+        goalAccuracyTable.textContent = "Не вдалося завантажити дані.";
+      }
+    }
+
+    async function ensureStatsLoaded() {
+      if (statsLoaded || !initDataRaw) return;
+      statsLoaded = true;
+      await loadLeaderboard();
+      await loadResultAccuracy();
+      await loadGoalAccuracy();
+    }
+
     (function boot() {
       if (!tg) {
         statusEl.textContent = "Запусти через кнопку Web App у Telegram.";
@@ -341,9 +899,28 @@
       }
       renderUser(user);
 
-      const initData = getInitDataRaw();
-      loadProfile(initData);
+      initDataRaw = getInitDataRaw();
+      loadProfile(initDataRaw);
+      loadMatches();
       // fetch(`${API_BASE}/api/webapp/ping`).then(r => r.json()).then(console.log).catch(console.error);
+
+      actionButtons.forEach((btn) => {
+        btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+      });
+      prevMatchBtn.addEventListener("click", () => {
+        if (matchesState.index > 0) {
+          matchesState.index -= 1;
+          renderMatchCard();
+        }
+      });
+      nextMatchBtn.addEventListener("click", () => {
+        if (matchesState.index < matchesState.list.length - 1) {
+          matchesState.index += 1;
+          renderMatchCard();
+        }
+      });
+      submitPredictionBtn.addEventListener("click", submitCurrentPrediction);
+      switchTab("predict");
     })();
   </script>
   <script>

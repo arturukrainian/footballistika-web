@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime, time
 from pathlib import Path
 from typing import Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update, WebAppInfo
@@ -59,6 +61,8 @@ ADD_MATCH_CONFIRM_BTN = "✅ Підтвердити"
 ADD_MATCH_REENTER_BTN = "↩️ Змінити"
 PREDICTION_CANCEL_BTN = "❌ Скасувати прогноз"
 RESULT_INPUT_PLACEHOLDER = "Введи рахунок у форматі 2:1"
+KYIV_TZ = ZoneInfo("Europe/Kyiv")
+PREDICTION_DEADLINE = time(17, 59)
 
 
 def is_admin(user_id: Optional[int]) -> bool:
@@ -229,6 +233,12 @@ async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def start_prediction_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
+    if not is_prediction_window_open():
+        await update.message.reply_text(
+            "Прогнози приймаємо до 17:59 за київським часом. Спробуй завтра.",
+            reply_markup=main_keyboard(is_admin(user.id)),
+        )
+        return
     match = storage.get_next_match_for_prediction(user.id)
     if not match:
         context.user_data.pop("awaiting_prediction_match", None)
@@ -254,6 +264,13 @@ async def handle_prediction_input(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     match_id = context.user_data.get("awaiting_prediction_match")
     if not match_id:
+        return
+    if not is_prediction_window_open():
+        context.user_data.pop("awaiting_prediction_match", None)
+        await message.reply_text(
+            "Прогнози приймаємо до 17:59 за київським часом. Спробуй завтра.",
+            reply_markup=main_keyboard(is_admin(user.id)),
+        )
         return
     text = (message.text or "").strip()
     text_lower = text.lower()
@@ -656,6 +673,16 @@ async def exit_admin_result_mode(update: Update, context: ContextTypes.DEFAULT_T
         message,
         reply_markup=admin_keyboard(),
     )
+
+
+def is_prediction_window_open(current_time: Optional[datetime] = None) -> bool:
+    now_kyiv = current_time or datetime.now(KYIV_TZ)
+    if now_kyiv.tzinfo is None:
+        now_kyiv = now_kyiv.replace(tzinfo=KYIV_TZ)
+    else:
+        now_kyiv = now_kyiv.astimezone(KYIV_TZ)
+    deadline = datetime.combine(now_kyiv.date(), PREDICTION_DEADLINE, KYIV_TZ)
+    return now_kyiv <= deadline
 
 
 def format_table(rows: List[List[str]]) -> str:
