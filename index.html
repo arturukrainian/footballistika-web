@@ -104,24 +104,6 @@
       letter-spacing: 0.2px;
     }
 
-    .fullname {
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(158, 240, 26, 0.12);
-      color: var(--accent);
-      border: 1px solid rgba(158, 240, 26, 0.28);
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-size: 13px;
-      width: fit-content;
-    }
-
     .section {
       background: rgba(255, 255, 255, 0.03);
       border-radius: 16px;
@@ -185,8 +167,6 @@
     </div>
     <div class="names">
       <div class="display-name" id="displayName">@username</div>
-      <div class="fullname" id="fullname">Ім'я з Telegram</div>
-      <div class="pill" id="userid">id: —</div>
     </div>
 
     <div class="stats" id="stats">
@@ -200,21 +180,13 @@
         <div class="stat-value" id="goalAccuracy">—%</div>
       </div>
     </div>
-
-    <div class="section">
-      <div class="hint">
-        Дані беруться напряму з Telegram Web App через initData, без окремої реєстрації. В бекенд підпис <code>initData</code> треба валідувати токеном бота.
-      </div>
-      <div class="status" id="status">Очікую на Telegram Web App...</div>
-    </div>
+    <div class="status" id="status"></div>
   </main>
 
   <script>
     const tg = window.Telegram?.WebApp;
     const statusEl = document.getElementById("status");
     const displayNameEl = document.getElementById("displayName");
-    const fullnameEl = document.getElementById("fullname");
-    const userIdEl = document.getElementById("userid");
     const avatarImg = document.getElementById("avatarImg");
     const avatarFallback = document.getElementById("avatarFallback");
     const resultAccuracyEl = document.getElementById("resultAccuracy");
@@ -226,13 +198,6 @@
       const last = (user.last_name || "").trim();
       const initials = (first[0] || "") + (last[0] || "");
       avatarFallback.textContent = initials ? initials.toUpperCase() : "TG";
-    }
-
-    function getInitDataRaw() {
-      if (tg?.initData) return tg.initData;
-      const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
-      const outer = new URLSearchParams(hash);
-      return outer.get("tgWebAppData") || "";
     }
 
     function getUserFromHash() {
@@ -252,13 +217,18 @@
       return tg?.initDataUnsafe?.user || getUserFromHash();
     }
 
+    function getInitDataRaw() {
+      if (tg?.initData) return tg.initData;
+      const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+      const outer = new URLSearchParams(hash);
+      return outer.get("tgWebAppData") || "";
+    }
+
     function renderUser(user) {
-      const fullLabel = [user.first_name, user.last_name].filter(Boolean).join(" ") || "";
-      const nameLabel = user.username ? `@${user.username}` : (fullLabel || `id${user.id}`);
+      const fullLabel = [user.first_name, user.last_name].filter(Boolean).join(" ");
+      const nameLabel = fullLabel || (user.username ? `@${user.username}` : `id${user.id}`);
       displayNameEl.textContent = nameLabel;
-      fullnameEl.textContent = fullLabel || "Користувач Telegram";
-      userIdEl.textContent = `id: ${user.id}`;
-      statusEl.textContent = "Дані підтягнуті з Telegram. На бекові валідуй initData перед збереженням профілю.";
+      statusEl.textContent = "";
       setFallbackInitials(user);
       if (user.photo_url) {
         avatarImg.src = user.photo_url;
@@ -287,7 +257,7 @@
         goalAccuracyEl.textContent = `${Number(stats.goal_accuracy_percent || 0).toFixed(0)}%`;
       } catch (e) {
         console.error(e);
-        statusEl.textContent = "Не вдалося отримати статистику з бекенду.";
+        statusEl.textContent = "";
       }
     }
 
