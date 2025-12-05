@@ -184,6 +184,7 @@
   </main>
 
   <script>
+    const API_BASE = "https://<твій-web-сервіс>.railway.app"; // повний домен Railway
     const tg = window.Telegram?.WebApp;
     const statusEl = document.getElementById("status");
     const displayNameEl = document.getElementById("displayName");
@@ -243,7 +244,7 @@
     async function loadProfile(initData) {
       if (!initData) return;
       try {
-        const res = await fetch("/api/webapp/profile", {
+        const res = await fetch(`${API_BASE}/api/webapp/profile`, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({ initData }).toString(),

@@ -4,6 +4,7 @@ import time
 from urllib.parse import parse_qs
 
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 import storage
 from utils.telegram_webapp import verify_init_data
@@ -14,6 +15,7 @@ if not BOT_TOKEN:
 MAX_AGE = 24 * 60 * 60  # 24h
 
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": ["https://footballistika-web.vercel.app"]}})
 
 
 def _verify_and_extract_user(init_data: str):
