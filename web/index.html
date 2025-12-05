@@ -184,7 +184,7 @@
   </main>
 
   <script>
-    const API_BASE = "https://<твій-web-сервіс>.railway.app"; // повний домен Railway
+    const API_BASE = "https://footballistikaweb-production.up.railway.app"; // повний домен Railway
     const tg = window.Telegram?.WebApp;
     const statusEl = document.getElementById("status");
     const displayNameEl = document.getElementById("displayName");
@@ -248,7 +248,6 @@
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({ initData }).toString(),
-          credentials: "include",
         });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "profile_failed");
@@ -285,29 +284,28 @@
     })();
   </script>
   <script>
+    const DEBUG = false; // ← вимикає повідомлення в інтерфейсі
+
     const tgDebug = window.Telegram?.WebApp;
     const statusElDebug = document.getElementById("status");
 
     function showDebug(msg, extra) {
       console.log(msg, extra);
-      statusElDebug.textContent = msg + (extra ? " " + extra : "");
+      if (DEBUG && statusElDebug) {
+        statusElDebug.textContent = msg + (extra ? " " + extra : "");
+      }
     }
 
     if (!tgDebug) {
       showDebug("Сторінка поза Telegram. Відкрий через кнопку в боті.");
     } else {
       tgDebug.ready(); tgDebug.expand();
-      const sameHost =
-        location.host === "footballistika-web.vercel.app";
+      const sameHost = location.host === "footballistika-web.vercel.app";
 
       const info = `host=${location.host} tg.platform=${tgDebug.platform} initData.len=${(tgDebug.initData||"").length}`;
-      if (!sameHost) {
-        showDebug("Домен не збігається з /setdomain.", info);
-      } else if (!tgDebug.initData || !tgDebug.initDataUnsafe?.user) {
-        showDebug("initData порожній. Перевір /setdomain і відкриття через кнопку.", info);
-      } else {
-        showDebug("OK: initData є.", info);
-      }
+      if (!sameHost) showDebug("Домен не збігається з /setdomain.", info);
+      else if (!tgDebug.initData || !tgDebug.initDataUnsafe?.user) showDebug("initData порожній. Перевір /setdomain і відкриття через кнопку.", info);
+      else showDebug("OK: initData є.", info);
     }
   </script>
 </body>

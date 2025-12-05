@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 from urllib.parse import parse_qs
 
@@ -15,7 +16,17 @@ if not BOT_TOKEN:
 MAX_AGE = 24 * 60 * 60  # 24h
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": ["https://footballistika-web.vercel.app"]}})
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "https://footballistika-web.vercel.app",
+                re.compile(r"https://footballistika-web-git-.*\\.vercel\\.app"),
+            ]
+        }
+    },
+)
 
 
 def _verify_and_extract_user(init_data: str):
