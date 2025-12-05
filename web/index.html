@@ -104,6 +104,12 @@
       letter-spacing: 0.2px;
     }
 
+    .subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: 0.2px;
+    }
+
     .section {
       background: rgba(255, 255, 255, 0.03);
       border-radius: 16px;
@@ -167,14 +173,10 @@
     </div>
     <div class="names">
       <div class="display-name" id="displayName">@username</div>
+      <div class="subtitle" id="predictionsInline">Прогнози: —</div>
     </div>
 
     <div class="stats" id="stats">
-      <div class="stat">
-        <div class="stat-label">Якість прогнозів</div>
-        <div class="stat-value" id="resultAccuracy">—%</div>
-        <div class="stat-sub" id="predictionsCount">Прогнози: —</div>
-      </div>
       <div class="stat">
         <div class="stat-label">Точність по голам</div>
         <div class="stat-value" id="goalAccuracy">—%</div>
@@ -188,11 +190,10 @@
     const tg = window.Telegram?.WebApp;
     const statusEl = document.getElementById("status");
     const displayNameEl = document.getElementById("displayName");
+    const predictionsInlineEl = document.getElementById("predictionsInline");
     const avatarImg = document.getElementById("avatarImg");
     const avatarFallback = document.getElementById("avatarFallback");
-    const resultAccuracyEl = document.getElementById("resultAccuracy");
     const goalAccuracyEl = document.getElementById("goalAccuracy");
-    const predictionsCountEl = document.getElementById("predictionsCount");
 
     function setFallbackInitials(user) {
       const first = (user.first_name || "").trim();
@@ -230,6 +231,7 @@
       const nameLabel = fullLabel || (user.username ? `@${user.username}` : `id${user.id}`);
       displayNameEl.textContent = nameLabel;
       statusEl.textContent = "";
+      predictionsInlineEl.textContent = "Прогнози: —";
       setFallbackInitials(user);
       if (user.photo_url) {
         avatarImg.src = user.photo_url;
@@ -252,8 +254,7 @@
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "profile_failed");
         const stats = data.stats || {};
-        predictionsCountEl.textContent = `Прогнози: ${stats.predictions ?? "0"}`;
-        resultAccuracyEl.textContent = `${Number(stats.result_accuracy_percent || 0).toFixed(0)}%`;
+        predictionsInlineEl.textContent = `Прогнози: ${stats.predictions ?? "0"}`;
         goalAccuracyEl.textContent = `${Number(stats.goal_accuracy_percent || 0).toFixed(0)}%`;
       } catch (e) {
         console.error("profile error:", e);
