@@ -1,0 +1,8 @@
+# user_id|username|predictions|goal_accuracy_percent
+840298|artem_niko|5|55.00
+241877496|kovalev_misha|5|51.67
+293494880|Viacheslav|5|46.67
+466343275|dvijwf|5|49.17
+951715739|zhuk_zhuk|5|46.67
+5323468094|nick_slabkiy|5|38.33
+7797745888|artur_ukrainian|5|50.00

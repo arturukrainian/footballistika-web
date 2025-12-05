@@ -1,0 +1,6 @@
+# match_id|team1|team2|score1|score2|status
+1|ЛІДС|ЧЕЛСІ|3|1|finished
+2|ЛІВЕР|САНДЕРЛЕНД|1|1|finished
+3|АТЛЕТІК|РЕАЛ|0|3|finished
+4|МЮ|ВЕСТ ХЕМ|1|1|finished
+5|ЛАЦІО|МІЛАН|1|0|finished

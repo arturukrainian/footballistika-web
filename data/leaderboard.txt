@@ -1,0 +1,8 @@
+# user_id|username|points
+951715739|zhuk_zhuk|121
+840298|artem_niko|116
+7797745888|artur_ukrainian|105
+241877496|kovalev_misha|94
+466343275|dvijwf|90
+5323468094|nick_slabkiy|73
+293494880|Viacheslav|7
