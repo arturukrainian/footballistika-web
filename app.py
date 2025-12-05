@@ -8,7 +8,9 @@ from flask import Flask, jsonify, request
 import storage
 from utils.telegram_webapp import verify_init_data
 
-BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+if not BOT_TOKEN:
+    raise RuntimeError("TELEGRAM_BOT_TOKEN is not set")
 MAX_AGE = 24 * 60 * 60  # 24h
 
 app = Flask(__name__)
@@ -67,4 +69,6 @@ def webapp_profile():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Railway (та інші PaaS) передають порт через env-перемінну PORT
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
