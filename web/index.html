@@ -110,6 +110,13 @@
       letter-spacing: 0.2px;
     }
 
+    .info-row {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 0.2px;
+    }
+
     .section {
       background: rgba(255, 255, 255, 0.03);
       border-radius: 16px;
@@ -191,7 +198,7 @@
     </div>
     <div class="names">
       <div class="display-name" id="displayName">@username</div>
-      <div class="subtitle" id="predictionsInline">Прогнози: —</div>
+      <div class="subtitle" id="positionInfo">Місце: — • Бали: —</div>
     </div>
 
     <div class="stats" id="stats">
@@ -214,6 +221,7 @@
         </div>
       </div>
     </div>
+    <div class="info-row" id="predictionsInline">Прогнози: —</div>
     <div class="status" id="status"></div>
   </main>
 
@@ -222,6 +230,7 @@
     const tg = window.Telegram?.WebApp;
     const statusEl = document.getElementById("status");
     const displayNameEl = document.getElementById("displayName");
+    const positionInfoEl = document.getElementById("positionInfo");
     const predictionsInlineEl = document.getElementById("predictionsInline");
     const avatarImg = document.getElementById("avatarImg");
     const avatarFallback = document.getElementById("avatarFallback");
@@ -267,6 +276,7 @@
       displayNameEl.textContent = nameLabel;
       statusEl.textContent = "";
       predictionsInlineEl.textContent = "Прогнози: —";
+      positionInfoEl.textContent = "Місце: — • Бали: —";
       resultAccuracyEl.textContent = "—%";
       goalAccuracyEl.textContent = "—%";
       resultBar.style.width = "0%";
@@ -296,8 +306,13 @@
         predictionsInlineEl.textContent = `Прогнози: ${stats.predictions ?? "0"}`;
         const resultPct = Number(stats.result_accuracy_percent || 0);
         const goalPct = Number(stats.goal_accuracy_percent || 0);
+        const placeVal = Number(stats.place || 0);
+        const pointsVal = Number.isFinite(stats.points) ? stats.points : null;
         resultAccuracyEl.textContent = `${resultPct.toFixed(0)}%`;
         goalAccuracyEl.textContent = `${goalPct.toFixed(0)}%`;
+        const placeText = placeVal > 0 ? `Місце: ${placeVal}` : "Місце: —";
+        const pointsText = pointsVal !== null ? `Бали: ${pointsVal}` : "Бали: —";
+        positionInfoEl.textContent = `${placeText} • ${pointsText}`;
         requestAnimationFrame(() => {
           resultBar.style.width = `${Math.min(Math.max(resultPct, 0), 100)}%`;
           goalBar.style.width = `${Math.min(Math.max(goalPct, 0), 100)}%`;
