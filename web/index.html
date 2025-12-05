@@ -524,6 +524,7 @@
       deadline: "17:59 Europe/Kyiv",
     };
     let statsLoaded = false;
+    const DEADLINE_TEXT = "Прогнози приймаємо до 17:59 за Києвом.";
 
     function setFallbackInitials(user) {
       const first = (user.first_name || "").trim();
@@ -629,13 +630,16 @@
       const { list, index, allowed, deadline } = matchesState;
       predictDeadlineText.textContent = allowed
         ? `Прийом прогнозів відкрито до ${deadline}.`
-        : `Дедлайн минув. Прогнози приймаємо до ${deadline}.`;
+        : DEADLINE_TEXT;
 
+      if (!allowed) {
+        predictContent.classList.add("hidden");
+        noMatchesText.textContent = DEADLINE_TEXT;
+        return;
+      }
       if (!list.length) {
         predictContent.classList.add("hidden");
-        noMatchesText.textContent = allowed
-          ? "Немає матчів для прогнозу."
-          : "Прогнози недоступні: дедлайн минув.";
+        noMatchesText.textContent = "Немає матчів для прогнозу.";
         return;
       }
       predictContent.classList.remove("hidden");
@@ -644,15 +648,19 @@
       matchTitleEl.textContent = `Матч #${match.id}`;
       team1NameEl.textContent = match.team1;
       team2NameEl.textContent = match.team2;
-      score1Input.value = "";
-      score2Input.value = "";
+      if (match.predicted) {
+        score1Input.value = match.pred_score1 ?? "";
+        score2Input.value = match.pred_score2 ?? "";
+      } else {
+        score1Input.value = "";
+        score2Input.value = "";
+      }
       prevMatchBtn.disabled = list.length <= 1 || index === 0;
       nextMatchBtn.disabled = list.length <= 1 || index === list.length - 1;
-      submitPredictionBtn.disabled = !allowed;
-      predictHelper.textContent = `Матч ${index + 1} з ${list.length}`;
-      if (!allowed) {
-        predictHelper.textContent = "Дедлайн минув. Спробуй завтра.";
-      }
+      submitPredictionBtn.disabled = !allowed || match.predicted;
+      predictHelper.textContent = match.predicted
+        ? `Твій прогноз: ${match.pred_score1}:${match.pred_score2}`
+        : `Матч ${index + 1} з ${list.length}`;
     }
 
     async function loadMatches() {
@@ -691,6 +699,10 @@
       }
       if (!matchesState.list.length) return;
       const match = matchesState.list[matchesState.index];
+      if (match.predicted) {
+        predictHelper.textContent = "Ти вже робив прогноз на цей матч.";
+        return;
+      }
       if (score1Input.value === "" || score2Input.value === "") {
         predictHelper.textContent = "Введи рахунок для обох команд.";
         return;
@@ -718,10 +730,9 @@
           return;
         }
         predictHelper.textContent = `Зберіг ${score1}:${score2} для ${match.team1} vs ${match.team2}.`;
-        matchesState.list.splice(matchesState.index, 1);
-        if (matchesState.index >= matchesState.list.length) {
-          matchesState.index = Math.max(matchesState.list.length - 1, 0);
-        }
+        match.predicted = true;
+        match.pred_score1 = score1;
+        match.pred_score2 = score2;
         renderMatchCard();
       } catch (e) {
         console.error("prediction error:", e);

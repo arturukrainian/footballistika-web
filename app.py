@@ -137,14 +137,22 @@ def webapp_matches():
     if error:
         return jsonify({"ok": False, "error": error}), 401
     user_id = int(user["id"])
-    matches = storage.get_pending_matches_for_user(user_id)
+    matches = storage.get_pending_matches_with_user_predictions(user_id)
     return jsonify(
         {
             "ok": True,
             "prediction_allowed": _is_prediction_window_open(),
             "deadline": "17:59 Europe/Kyiv",
             "matches": [
-                {"id": m["id"], "team1": m["team1"], "team2": m["team2"]} for m in matches
+                {
+                    "id": m["id"],
+                    "team1": m["team1"],
+                    "team2": m["team2"],
+                    "predicted": m.get("predicted", False),
+                    "pred_score1": m.get("pred_score1"),
+                    "pred_score2": m.get("pred_score2"),
+                }
+                for m in matches
             ],
         }
     )

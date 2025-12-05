@@ -311,6 +311,31 @@ def get_pending_matches_for_user(user_id: int) -> List[Dict]:
     return [match for match in pending if match["id"] not in predicted]
 
 
+def get_pending_matches_with_user_predictions(user_id: int) -> List[Dict]:
+    """Повертає pending-матчі з ознакою чи є прогноз користувача."""
+    pending = [match for match in read_matches() if match.get("status") == "pending"]
+    predictions = {
+        entry["match_id"]: entry
+        for entry in read_predictions()
+        if entry["user_id"] == user_id
+    }
+    enriched: List[Dict] = []
+    for match in pending:
+        pred = predictions.get(match["id"])
+        enriched.append(
+            {
+                "id": match["id"],
+                "team1": match["team1"],
+                "team2": match["team2"],
+                "predicted": bool(pred),
+                "pred_score1": pred["pred_score1"] if pred else None,
+                "pred_score2": pred["pred_score2"] if pred else None,
+            }
+        )
+    enriched.sort(key=lambda item: item["id"])
+    return enriched
+
+
 def get_next_pending_match_for_result() -> Optional[Dict]:
     matches = read_matches()
     for match in matches:
