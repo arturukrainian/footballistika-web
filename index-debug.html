@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="uk">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TG WebApp Debug</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<pre id="out">loading…</pre>
+<script>
+  const out = document.getElementById('out');
+  function show(obj) { out.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2); }
+  const tg = window.Telegram?.WebApp;
+  const info = {
+    location_origin: location.origin,
+    location_href: location.href,
+    has_Telegram: !!window.Telegram,
+    has_WebApp: !!tg,
+    platform: tg?.platform || null,
+    initData_length: (tg?.initData || '').length || 0,
+    initDataUnsafe_user: tg?.initDataUnsafe?.user || null,
+  };
+  show(info);
+  if (tg) { tg.ready(); tg.expand(); }
+</script>
