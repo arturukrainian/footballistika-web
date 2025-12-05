@@ -160,7 +160,7 @@
   </main>
 
   <script>
-    const tg = window.Telegram ? window.Telegram.WebApp : null;
+    const tg = window.Telegram?.WebApp;
     const statusEl = document.getElementById("status");
     const usernameEl = document.getElementById("username");
     const fullnameEl = document.getElementById("fullname");
@@ -175,37 +175,94 @@
       avatarFallback.textContent = initials ? initials.toUpperCase() : "TG";
     }
 
-    if (!tg) {
-      statusEl.textContent = "Запусти через кнопку Web App у Telegram, щоб побачити профіль.";
-    } else {
-      tg.ready();
-      tg.expand();
+    function getUserFromHash() {
+      // location.hash може містити tgWebAppData="query_id=...&user=%7B...%7D&auth_date=...&hash=..."
+      const rawHash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+      if (!rawHash) return null;
+      const outer = new URLSearchParams(rawHash);
+      const innerStr = outer.get("tgWebAppData");
+      if (!innerStr) return null;
+      const inner = new URLSearchParams(innerStr);
+      const userStr = inner.get("user");
+      if (!userStr) return null;
+      try { return JSON.parse(decodeURIComponent(userStr)); } catch { return null; }
+    }
 
-      const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
-      if (!user) {
-        statusEl.textContent = "Не бачу user у initData. Переконайся, що відкриваєш через бота.";
-        setFallbackInitials({});
+    function getUser() {
+      return tg?.initDataUnsafe?.user || getUserFromHash();
+    }
+
+    function renderUser(user) {
+      const nameLabel = user.username ? `@${user.username}` : (user.first_name || user.last_name || `id${user.id}`);
+      const fullLabel = [user.first_name, user.last_name].filter(Boolean).join(" ") || "Користувач Telegram";
+      usernameEl.textContent = nameLabel;
+      fullnameEl.textContent = fullLabel;
+      userIdEl.textContent = `id: ${user.id}`;
+      statusEl.textContent = "Дані підтягнуті з Telegram. На бекові валідуй initData перед збереженням профілю.";
+      setFallbackInitials(user);
+      if (user.photo_url) {
+        avatarImg.src = user.photo_url;
+        avatarImg.onload = () => { avatarImg.style.display = "block"; avatarFallback.style.display = "none"; };
+        avatarImg.onerror = () => { avatarImg.style.display = "none"; avatarFallback.style.display = "block"; };
       } else {
-        const nameLabel = user.username ? `@${user.username}` : (user.first_name || user.last_name || `id${user.id}`);
-        const fullLabel = [user.first_name, user.last_name].filter(Boolean).join(" ") || "Користувач Telegram";
+        avatarImg.style.display = "none";
+        avatarFallback.style.display = "block";
+      }
+    }
 
-        usernameEl.textContent = nameLabel;
-        fullnameEl.textContent = fullLabel;
-        userIdEl.textContent = `id: ${user.id}`;
-        statusEl.textContent = "Дані підтягнуті з Telegram. На бекові валідуй initData перед збереженням профілю.";
+    (function boot() {
+      if (!tg) {
+        statusEl.textContent = "Запусти через кнопку Web App у Telegram.";
+        return setFallbackInitials({});
+      }
+      tg.ready(); tg.expand();
 
-        setFallbackInitials(user);
-        if (user.photo_url) {
-          avatarImg.src = user.photo_url;
-          avatarImg.onload = () => {
-            avatarImg.style.display = "block";
-            avatarFallback.style.display = "none";
-          };
-          avatarImg.onerror = () => {
-            avatarImg.style.display = "none";
-            avatarFallback.style.display = "block";
-          };
-        }
+      const user = getUser();
+
+      if (!user) {
+        const isMac = tg.platform === "macos";
+        statusEl.textContent = isMac
+          ? "Клієнт Telegram для macOS не передає user. Відкрий у мобільному Telegram або Telegram Desktop."
+          : "Не бачу user у initData. Відкрий через кнопку бота (не напряму лінком).";
+        return setFallbackInitials({});
+      }
+      renderUser(user);
+
+      // (опційно) відіслати initData на бекенд для валідації
+      const initData = tg.initData || (new URLSearchParams(location.hash.slice(1)).get("tgWebAppData") || "");
+      if (initData) {
+        fetch("/api/webapp/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ initData }).toString(),
+          credentials: "include",
+        }).catch(()=>{});
+      }
+    })();
+  </script>
+  <script>
+    const tgDebug = window.Telegram?.WebApp;
+    const statusElDebug = document.getElementById("status");
+
+    function showDebug(msg, extra) {
+      console.log(msg, extra);
+      statusElDebug.textContent = msg + (extra ? " " + extra : "");
+    }
+
+    if (!tgDebug) {
+      showDebug("Сторінка поза Telegram. Відкрий через кнопку в боті.");
+    } else {
+      tgDebug.ready(); tgDebug.expand();
+      const sameHost =
+        location.host === "footballistika-web.vercel.app";
+
+      const info = `host=${location.host} tg.platform=${tgDebug.platform} initData.len=${(tgDebug.initData||"").length}`;
+      if (!sameHost) {
+        showDebug("Домен не збігається з /setdomain.", info);
+      } else if (!tgDebug.initData || !tgDebug.initDataUnsafe?.user) {
+        showDebug("initData порожній. Перевір /setdomain і відкриття через кнопку.", info);
+      } else {
+        showDebug("OK: initData є.", info);
       }
     }
   </script>
