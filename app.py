@@ -69,6 +69,5 @@ def webapp_profile():
 
 
 if __name__ == "__main__":
-    # Railway (та інші PaaS) передають порт через env-перемінну PORT
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

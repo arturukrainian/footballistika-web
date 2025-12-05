@@ -673,7 +673,7 @@ def format_table(rows: List[List[str]]) -> str:
     return "\n".join(formatted_rows)
 
 
-def main() -> None:
+def build_app() -> Application:
     if not TOKEN:
         raise RuntimeError("Не вказано TELEGRAM_BOT_TOKEN у середовищі або .env файлі.")
     app = Application.builder().token(TOKEN).build()
@@ -682,7 +682,12 @@ def main() -> None:
     app.add_handler(CommandHandler(["app", "profile"], send_webapp_button))
     app.add_handler(CommandHandler("debug", debug_webapp))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
-    logger.info("Бот запущено.")
+    return app
+
+
+def main() -> None:
+    app = build_app()
+    logging.getLogger(__name__).info("Бот запущено.")
     app.run_polling()
 
 

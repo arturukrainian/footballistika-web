@@ -1,3 +1,4 @@
-python-telegram-bot==13.15
-Flask==3.0.0
-python-dotenv==1.0.0
+python-telegram-bot>=20.7,<21
+Flask>=3.0
+gunicorn>=21.2
+python-dotenv>=1.0.0
