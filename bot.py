@@ -22,7 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-WEBAPP_URL = os.getenv("WEBAPP_URL", "https://footballistika-web.vercel.app/index.html")
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://footballistika-web.vercel.app/web/index.html")
 ADMIN_IDS = {
     int(item.strip())
     for item in os.environ.get("ADMIN_IDS", "").split(",")

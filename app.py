@@ -26,7 +26,8 @@ CORS(
             "origins": [
                 "https://footballistika-web.vercel.app",
                 re.compile(r"https://footballistika-web-git-.*\\.vercel\\.app"),
-            ]
+            ],
+            "supports_credentials": True,
         }
     },
 )
