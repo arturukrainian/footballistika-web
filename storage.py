@@ -499,6 +499,8 @@ def get_user_prediction_stats(user_id: int) -> Dict[str, float]:
     result_accuracy = 0.0
     goal_accuracy = 0.0
     predictions = 0
+    points = 0
+    place = 0
 
     for row in read_prediction_result_accuracy():
         if row["user_id"] == user_id:
@@ -511,10 +513,18 @@ def get_user_prediction_stats(user_id: int) -> Dict[str, float]:
             goal_accuracy = row["goal_accuracy_percent"]
             break
 
+    for idx, (row_user_id, _, row_points) in enumerate(leaderboard_rows(), start=1):
+        if row_user_id == user_id:
+            place = idx
+            points = row_points
+            break
+
     return {
         "predictions": predictions,
         "result_accuracy_percent": result_accuracy,
         "goal_accuracy_percent": goal_accuracy,
+        "place": place,
+        "points": points,
     }
 
 
