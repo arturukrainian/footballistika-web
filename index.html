@@ -80,6 +80,11 @@
       position: relative;
     }
 
+    .avatar-wrap {
+      display: grid;
+      place-items: center;
+    }
+
     .avatar img {
       width: 100%;
       height: 100%;
@@ -88,14 +93,15 @@
     }
 
     .names {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      display: grid;
+      gap: 6px;
+      text-align: center;
     }
 
-    .username {
-      font-size: 18px;
-      font-weight: 700;
+    .display-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
     }
 
     .fullname {
@@ -125,6 +131,38 @@
       gap: 10px;
     }
 
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .stat {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.2px;
+    }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .stat-sub {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
     .hint {
       color: var(--muted);
       font-size: 13px;
@@ -139,15 +177,27 @@
 </head>
 <body>
   <main class="card">
-    <div class="header">
+    <div class="avatar-wrap">
       <div class="avatar" id="avatar">
         <img id="avatarImg" alt="avatar">
         <span id="avatarFallback">TG</span>
       </div>
-      <div class="names">
-        <div class="username" id="username">@username</div>
-        <div class="fullname" id="fullname">Ім'я з Telegram</div>
-        <div class="pill" id="userid">id: —</div>
+    </div>
+    <div class="names">
+      <div class="display-name" id="displayName">@username</div>
+      <div class="fullname" id="fullname">Ім'я з Telegram</div>
+      <div class="pill" id="userid">id: —</div>
+    </div>
+
+    <div class="stats" id="stats">
+      <div class="stat">
+        <div class="stat-label">Якість прогнозів</div>
+        <div class="stat-value" id="resultAccuracy">—%</div>
+        <div class="stat-sub" id="predictionsCount">Прогнози: —</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Точність по голам</div>
+        <div class="stat-value" id="goalAccuracy">—%</div>
       </div>
     </div>
 
@@ -162,17 +212,27 @@
   <script>
     const tg = window.Telegram?.WebApp;
     const statusEl = document.getElementById("status");
-    const usernameEl = document.getElementById("username");
+    const displayNameEl = document.getElementById("displayName");
     const fullnameEl = document.getElementById("fullname");
     const userIdEl = document.getElementById("userid");
     const avatarImg = document.getElementById("avatarImg");
     const avatarFallback = document.getElementById("avatarFallback");
+    const resultAccuracyEl = document.getElementById("resultAccuracy");
+    const goalAccuracyEl = document.getElementById("goalAccuracy");
+    const predictionsCountEl = document.getElementById("predictionsCount");
 
     function setFallbackInitials(user) {
       const first = (user.first_name || "").trim();
       const last = (user.last_name || "").trim();
       const initials = (first[0] || "") + (last[0] || "");
       avatarFallback.textContent = initials ? initials.toUpperCase() : "TG";
+    }
+
+    function getInitDataRaw() {
+      if (tg?.initData) return tg.initData;
+      const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+      const outer = new URLSearchParams(hash);
+      return outer.get("tgWebAppData") || "";
     }
 
     function getUserFromHash() {
@@ -193,10 +253,10 @@
     }
 
     function renderUser(user) {
-      const nameLabel = user.username ? `@${user.username}` : (user.first_name || user.last_name || `id${user.id}`);
-      const fullLabel = [user.first_name, user.last_name].filter(Boolean).join(" ") || "Користувач Telegram";
-      usernameEl.textContent = nameLabel;
-      fullnameEl.textContent = fullLabel;
+      const fullLabel = [user.first_name, user.last_name].filter(Boolean).join(" ") || "";
+      const nameLabel = user.username ? `@${user.username}` : (fullLabel || `id${user.id}`);
+      displayNameEl.textContent = nameLabel;
+      fullnameEl.textContent = fullLabel || "Користувач Telegram";
       userIdEl.textContent = `id: ${user.id}`;
       statusEl.textContent = "Дані підтягнуті з Telegram. На бекові валідуй initData перед збереженням профілю.";
       setFallbackInitials(user);
@@ -207,6 +267,27 @@
       } else {
         avatarImg.style.display = "none";
         avatarFallback.style.display = "block";
+      }
+    }
+
+    async function loadProfile(initData) {
+      if (!initData) return;
+      try {
+        const res = await fetch("/api/webapp/profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ initData }).toString(),
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "profile_failed");
+        const stats = data.stats || {};
+        predictionsCountEl.textContent = `Прогнози: ${stats.predictions ?? "0"}`;
+        resultAccuracyEl.textContent = `${Number(stats.result_accuracy_percent || 0).toFixed(0)}%`;
+        goalAccuracyEl.textContent = `${Number(stats.goal_accuracy_percent || 0).toFixed(0)}%`;
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = "Не вдалося отримати статистику з бекенду.";
       }
     }
 
@@ -228,16 +309,8 @@
       }
       renderUser(user);
 
-      // (опційно) відіслати initData на бекенд для валідації
-      const initData = tg.initData || (new URLSearchParams(location.hash.slice(1)).get("tgWebAppData") || "");
-      if (initData) {
-        fetch("/api/webapp/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ initData }).toString(),
-          credentials: "include",
-        }).catch(()=>{});
-      }
+      const initData = getInitDataRaw();
+      loadProfile(initData);
     })();
   </script>
   <script>
