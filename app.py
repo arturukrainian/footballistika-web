@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import time
@@ -9,6 +10,8 @@ from flask_cors import CORS
 
 import storage
 from utils.telegram_webapp import verify_init_data
+
+logging.basicConfig(level=logging.INFO)
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 if not BOT_TOKEN:
@@ -61,11 +64,19 @@ def webapp_login():
 @app.post("/api/webapp/profile")
 def webapp_profile():
     init_data = request.form.get("initData", "")
+    logging.info(
+        "profile: origin=%s ua=%s len(initData)=%s",
+        request.headers.get("Origin"),
+        request.headers.get("User-Agent"),
+        len(init_data or ""),
+    )
     user, params, error = _verify_and_extract_user(init_data)
     if error:
+        logging.warning("profile: verify failed: %s", error)
         return jsonify({"ok": False, "error": error}), 401
 
-    stats = storage.get_user_prediction_stats(int(user["id"]))
+    stats = storage.get_user_prediction_stats(int(user["id"])) or {}
+    logging.info("profile: user_id=%s stats_keys=%s", user["id"], list(stats.keys()))
     return jsonify(
         {
             "ok": True,
@@ -79,6 +90,11 @@ def webapp_profile():
             "stats": stats,
         }
     )
+
+
+@app.get("/api/webapp/ping")
+def ping():
+    return jsonify({"ok": True, "at": "railway", "origin": request.headers.get("Origin")})
 
 
 if __name__ == "__main__":

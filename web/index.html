@@ -256,8 +256,8 @@
         resultAccuracyEl.textContent = `${Number(stats.result_accuracy_percent || 0).toFixed(0)}%`;
         goalAccuracyEl.textContent = `${Number(stats.goal_accuracy_percent || 0).toFixed(0)}%`;
       } catch (e) {
-        console.error(e);
-        statusEl.textContent = "";
+        console.error("profile error:", e);
+        statusEl.textContent = "Помилка профілю: " + (e?.message || "network");
       }
     }
 
@@ -281,6 +281,7 @@
 
       const initData = getInitDataRaw();
       loadProfile(initData);
+      // fetch(`${API_BASE}/api/webapp/ping`).then(r => r.json()).then(console.log).catch(console.error);
     })();
   </script>
   <script>
