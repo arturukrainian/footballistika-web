@@ -113,6 +113,7 @@ def webapp_profile():
         logging.warning("profile: verify failed: %s", error)
         return jsonify({"ok": False, "error": error}), 401
 
+    storage.ensure_user_record(int(user["id"]), user.get("username") or "")
     stats = storage.get_user_prediction_stats(int(user["id"])) or {}
     logging.info("profile: user_id=%s stats_keys=%s", user["id"], list(stats.keys()))
     return jsonify(
@@ -179,11 +180,12 @@ def webapp_prediction():
         return jsonify({"ok": False, "error": "scores_out_of_range"}), 400
 
     match = storage.find_match(match_id)
-    if not match or match.get("status") != "pending":
+    if not match or match.get("status") != "scheduled":
         return jsonify({"ok": False, "error": "match_not_available"}), 400
 
     user_id = int(user["id"])
     username = user.get("username") or user.get("first_name") or str(user_id)
+    storage.ensure_user_record(user_id, username)
     if storage.get_user_prediction(match_id, user_id):
         return jsonify({"ok": False, "error": "already_predicted"}), 409
 

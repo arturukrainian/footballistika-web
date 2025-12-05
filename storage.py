@@ -1,512 +1,436 @@
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from dotenv import load_dotenv
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    func,
+    select,
+    text,
+)
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
-BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env")
-
-DATA_DIR = Path(os.environ.get("DATA_DIR", BASE_DIR / "data"))
-MATCHES_FILE = DATA_DIR / "matches.txt"
-PREDICTIONS_FILE = DATA_DIR / "predictions.txt"
-LEADERBOARD_FILE = DATA_DIR / "leaderboard.txt"
-PREDICTION_RESULT_ACCURACY_FILE = DATA_DIR / "prediction_result_accuracy.txt"
-PREDICTION_GOAL_ACCURACY_FILE = DATA_DIR / "prediction_goal_accuracy.txt"
-
-
-def _ensure_storage() -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not MATCHES_FILE.exists():
-        MATCHES_FILE.write_text(
-            "# match_id|team1|team2|score1|score2|status\n",
-            encoding="utf-8",
-        )
-    if not PREDICTIONS_FILE.exists():
-        PREDICTIONS_FILE.write_text(
-            "# match_id|user_id|username|pred_score1|pred_score2|timestamp|points_awarded\n",
-            encoding="utf-8",
-        )
-    if not LEADERBOARD_FILE.exists():
-        LEADERBOARD_FILE.write_text(
-            "# user_id|username|points\n",
-            encoding="utf-8",
-        )
-    if not PREDICTION_RESULT_ACCURACY_FILE.exists():
-        PREDICTION_RESULT_ACCURACY_FILE.write_text(
-            "# user_id|username|predictions|result_accuracy_percent\n",
-            encoding="utf-8",
-        )
-    if not PREDICTION_GOAL_ACCURACY_FILE.exists():
-        PREDICTION_GOAL_ACCURACY_FILE.write_text(
-            "# user_id|username|predictions|goal_accuracy_percent\n",
-            encoding="utf-8",
-        )
+DATABASE_URL = os.environ.get("DATABASE_POOL_URL") or os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
 
 
-_ensure_storage()
+class Base(DeclarativeBase):
+    pass
 
 
-def _parse_line(line: str) -> Optional[List[str]]:
-    if not line.strip() or line.startswith("#"):
-        return None
-    return [part.strip() for part in line.strip().split("|")]
+class PointsRule(Base):
+    __tablename__ = "points_rules"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    exact_points: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    result_points: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-def _dump_line(parts: List[str]) -> str:
-    return "|".join(parts) + "\n"
-
-
-def read_matches() -> List[Dict]:
-    matches: List[Dict] = []
-    with MATCHES_FILE.open(encoding="utf-8") as fh:
-        for line in fh:
-            parts = _parse_line(line)
-            if not parts:
-                continue
-            match_id = int(parts[0])
-            score1 = None if parts[3] in {"-", ""} else int(parts[3])
-            score2 = None if parts[4] in {"-", ""} else int(parts[4])
-            matches.append(
-                {
-                    "id": match_id,
-                    "team1": parts[1],
-                    "team2": parts[2],
-                    "score1": score1,
-                    "score2": score2,
-                    "status": parts[5],
-                }
-            )
-    matches.sort(key=lambda item: item["id"])
-    return matches
-
-
-def write_matches(matches: List[Dict]) -> None:
-    lines = [
-        "# match_id|team1|team2|score1|score2|status\n",
-    ]
-    for match in sorted(matches, key=lambda item: item["id"]):
-        score1 = "-" if match.get("score1") is None else str(match["score1"])
-        score2 = "-" if match.get("score2") is None else str(match["score2"])
-        lines.append(
-            _dump_line(
-                [
-                    str(match["id"]),
-                    match["team1"],
-                    match["team2"],
-                    score1,
-                    score2,
-                    match.get("status", "pending"),
-                ]
-            )
-        )
-    MATCHES_FILE.write_text("".join(lines), encoding="utf-8")
-
-
-def add_match(team1: str, team2: str) -> Dict:
-    matches = read_matches()
-    next_id = max([match["id"] for match in matches], default=0) + 1
-    new_match = {
-        "id": next_id,
-        "team1": team1,
-        "team2": team2,
-        "score1": None,
-        "score2": None,
-        "status": "pending",
-    }
-    matches.append(new_match)
-    write_matches(matches)
-    return new_match
-
-
-def find_match(match_id: int) -> Optional[Dict]:
-    for match in read_matches():
-        if match["id"] == match_id:
-            return match
-    return None
-
-
-def update_match_result(match_id: int, score1: int, score2: int) -> Optional[Dict]:
-    matches = read_matches()
-    updated: Optional[Dict] = None
-    for match in matches:
-        if match["id"] == match_id:
-            match["score1"] = score1
-            match["score2"] = score2
-            match["status"] = "finished"
-            updated = match
-            break
-    if updated is None:
-        return None
-    write_matches(matches)
-    return updated
-
-
-def read_predictions() -> List[Dict]:
-    records: List[Dict] = []
-    with PREDICTIONS_FILE.open(encoding="utf-8") as fh:
-        for line in fh:
-            parts = _parse_line(line)
-            if not parts:
-                continue
-            records.append(
-                {
-                    "match_id": int(parts[0]),
-                    "user_id": int(parts[1]),
-                    "username": parts[2],
-                    "pred_score1": int(parts[3]),
-                    "pred_score2": int(parts[4]),
-                    "timestamp": parts[5],
-                    "points_awarded": int(parts[6]),
-                }
-            )
-    return records
-
-
-def write_predictions(predictions: List[Dict]) -> None:
-    lines = [
-        "# match_id|user_id|username|pred_score1|pred_score2|timestamp|points_awarded\n",
-    ]
-    for entry in predictions:
-        lines.append(
-            _dump_line(
-                [
-                    str(entry["match_id"]),
-                    str(entry["user_id"]),
-                    entry["username"],
-                    str(entry["pred_score1"]),
-                    str(entry["pred_score2"]),
-                    entry["timestamp"],
-                    str(entry.get("points_awarded", 0)),
-                ]
-            )
-        )
-    PREDICTIONS_FILE.write_text("".join(lines), encoding="utf-8")
-
-
-def get_user_prediction(match_id: int, user_id: int) -> Optional[Dict]:
-    for entry in read_predictions():
-        if entry["match_id"] == match_id and entry["user_id"] == user_id:
-            return entry
-    return None
-
-
-def append_prediction(match_id: int, user_id: int, username: str, score1: int, score2: int) -> None:
-    timestamp = datetime.utcnow().isoformat()
-    predictions = read_predictions()
-    predictions.append(
-        {
-            "match_id": match_id,
-            "user_id": user_id,
-            "username": username,
-            "pred_score1": score1,
-            "pred_score2": score2,
-            "timestamp": timestamp,
-            "points_awarded": 0,
-        }
+class Match(Base):
+    __tablename__ = "matches"
+    __table_args__ = (
+        CheckConstraint("status in ('scheduled','live','finished')", name="chk_match_status"),
     )
-    write_predictions(predictions)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    team1: Mapped[str] = mapped_column(Text, nullable=False)
+    team2: Mapped[str] = mapped_column(Text, nullable=False)
+    score1: Mapped[Optional[int]] = mapped_column(Integer)
+    score2: Mapped[Optional[int]] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="scheduled")
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    predictions: Mapped[List["Prediction"]] = relationship(back_populates="match")
 
 
-def read_leaderboard() -> Dict[int, Dict[str, int]]:
-    table: Dict[int, Dict[str, int]] = {}
-    with LEADERBOARD_FILE.open(encoding="utf-8") as fh:
-        for line in fh:
-            parts = _parse_line(line)
-            if not parts:
-                continue
-            user_id = int(parts[0])
-            table[user_id] = {
-                "username": parts[1],
-                "points": int(parts[2]),
-            }
-    return table
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    predictions: Mapped[List["Prediction"]] = relationship(back_populates="user")
 
 
-def write_leaderboard(table: Dict[int, Dict[str, int]]) -> None:
-    lines = ["# user_id|username|points\n"]
-    for user_id, data in sorted(table.items(), key=lambda item: item[1]["points"], reverse=True):
-        lines.append(
-            _dump_line([str(user_id), data["username"], str(data["points"])])
-        )
-    LEADERBOARD_FILE.write_text("".join(lines), encoding="utf-8")
+class Prediction(Base):
+    __tablename__ = "predictions"
+    __table_args__ = (
+        CheckConstraint("pred_score1 >= 0"),
+        CheckConstraint("pred_score2 >= 0"),
+    )
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id", ondelete="CASCADE"), primary_key=True)
+    pred_score1: Mapped[int] = mapped_column(Integer, nullable=False)
+    pred_score2: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped[User] = relationship(back_populates="predictions")
+    match: Mapped[Match] = relationship(back_populates="predictions")
+
+
+engine = create_engine(DATABASE_URL, future=True)
+SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
+
+
+@contextmanager
+def session_scope() -> Session:
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def _get_rules(session: Session) -> PointsRule:
+    rules = session.get(PointsRule, 1)
+    if not rules:
+        rules = PointsRule(id=1, exact_points=5, result_points=1)
+        session.add(rules)
+        session.commit()
+    return rules
 
 
 def ensure_user_record(user_id: int, username: str) -> None:
-    table = read_leaderboard()
-    existing = table.get(user_id)
-    if existing and existing.get("username") == username:
-        return
-    table[user_id] = {
-        "username": username,
-        "points": existing.get("points", 0) if existing else 0,
-    }
-    write_leaderboard(table)
+    with session_scope() as session:
+        user = session.get(User, user_id)
+        if not user:
+            session.add(User(id=user_id, username=username))
+            return
+        if username and user.username != username:
+            user.username = username
 
 
-def add_points(user_id: int, username: str, points: int) -> None:
-    if points == 0:
-        return
-    table = read_leaderboard()
-    current = table.get(user_id, {"username": username, "points": 0})
-    current["username"] = username
-    current["points"] = current.get("points", 0) + points
-    table[user_id] = current
-    write_leaderboard(table)
+def add_match(team1: str, team2: str, started_at: Optional[datetime] = None) -> Dict:
+    with session_scope() as session:
+        match = Match(team1=team1, team2=team2, status="scheduled", started_at=started_at)
+        session.add(match)
+        session.flush()
+        return _match_to_dict(match)
 
 
-def settle_match_points(match_id: int, score1: int, score2: int) -> List[Tuple[int, str, int]]:
-    predictions = read_predictions()
-    updated = False
-    awarded: List[Tuple[int, str, int]] = []
-    for entry in predictions:
-        if entry["match_id"] != match_id:
-            continue
-        points = _calculate_points(score1, score2, entry["pred_score1"], entry["pred_score2"])
-        delta = points - entry.get("points_awarded", 0)
-        if delta != 0:
-            entry["points_awarded"] = points
-            add_points(entry["user_id"], entry["username"], delta)
-            awarded.append((entry["user_id"], entry["username"], points))
-            updated = True
-    if updated:
-        write_predictions(predictions)
-    recalculate_prediction_quality()
-    return awarded
+def upsert_match(match_id: int, team1: str, team2: str, status: str, score1=None, score2=None) -> Dict:
+    with session_scope() as session:
+        match = session.get(Match, match_id)
+        if not match:
+            match = Match(
+                id=match_id,
+                team1=team1,
+                team2=team2,
+                status=status,
+                score1=score1,
+                score2=score2,
+            )
+            session.add(match)
+        else:
+            if match.status == "finished" and (match.team1 != team1 or match.team2 != team2):
+                raise ValueError("Cannot change teams of finished match")
+            match.team1 = team1
+            match.team2 = team2
+            match.status = status
+            match.score1 = score1
+            match.score2 = score2
+            match.updated_at = datetime.utcnow()
+        session.flush()
+        return _match_to_dict(match)
 
 
-def _calculate_points(real1: int, real2: int, pred1: int, pred2: int) -> int:
-    if real1 == pred1 and real2 == pred2:
-        return 5
-    real_result = _result_type(real1, real2)
-    pred_result = _result_type(pred1, pred2)
-    return 1 if real_result == pred_result else 0
-
-
-def _result_type(score1: int, score2: int) -> str:
-    if score1 == score2:
-        return "draw"
-    return "win1" if score1 > score2 else "win2"
-
-
-def get_next_match_for_prediction(user_id: int) -> Optional[Dict]:
-    matches = [match for match in read_matches() if match["status"] == "pending"]
-    predictions = read_predictions()
-    predicted_ids = {
-        (entry["match_id"], entry["user_id"]) for entry in predictions
-    }
-    for match in matches:
-        if (match["id"], user_id) not in predicted_ids:
-            return match
-    return None
-
-
-def get_pending_matches_for_user(user_id: int) -> List[Dict]:
-    """Повертає всі матчі без прогнозу конкретного користувача."""
-    pending = [match for match in read_matches() if match.get("status") == "pending"]
-    predicted = {entry["match_id"] for entry in read_predictions() if entry["user_id"] == user_id}
-    return [match for match in pending if match["id"] not in predicted]
-
-
-def get_pending_matches_with_user_predictions(user_id: int) -> List[Dict]:
-    """Повертає pending-матчі з ознакою чи є прогноз користувача."""
-    pending = [match for match in read_matches() if match.get("status") == "pending"]
-    predictions = {
-        entry["match_id"]: entry
-        for entry in read_predictions()
-        if entry["user_id"] == user_id
-    }
-    enriched: List[Dict] = []
-    for match in pending:
-        pred = predictions.get(match["id"])
-        enriched.append(
-            {
-                "id": match["id"],
-                "team1": match["team1"],
-                "team2": match["team2"],
-                "predicted": bool(pred),
-                "pred_score1": pred["pred_score1"] if pred else None,
-                "pred_score2": pred["pred_score2"] if pred else None,
-            }
-        )
-    enriched.sort(key=lambda item: item["id"])
-    return enriched
+def find_match(match_id: int) -> Optional[Dict]:
+    with session_scope() as session:
+        match = session.get(Match, match_id)
+        return _match_to_dict(match) if match else None
 
 
 def get_next_pending_match_for_result() -> Optional[Dict]:
-    matches = read_matches()
-    for match in matches:
-        if match["status"] == "pending":
-            return match
-    return None
+    with session_scope() as session:
+        match = session.scalars(
+            select(Match).where(Match.status != "finished").order_by(Match.id)
+        ).first()
+        return _match_to_dict(match) if match else None
+
+
+def update_match_result(match_id: int, score1: int, score2: int) -> Optional[Dict]:
+    with session_scope() as session:
+        match = session.get(Match, match_id)
+        if not match:
+            return None
+        match.score1 = score1
+        match.score2 = score2
+        match.status = "finished"
+        match.updated_at = datetime.utcnow()
+        session.flush()
+        return _match_to_dict(match)
+
+
+def get_next_match_for_prediction(user_id: int) -> Optional[Dict]:
+    with session_scope() as session:
+        sub = select(Prediction.match_id).where(Prediction.user_id == user_id)
+        match = session.scalars(
+            select(Match).where(Match.status == "scheduled", Match.id.not_in(sub)).order_by(Match.id)
+        ).first()
+        return _match_to_dict(match) if match else None
+
+
+def get_pending_matches_for_user(user_id: int) -> List[Dict]:
+    with session_scope() as session:
+        sub = select(Prediction.match_id).where(Prediction.user_id == user_id)
+        matches = session.scalars(
+            select(Match).where(Match.status == "scheduled", Match.id.not_in(sub)).order_by(Match.id)
+        ).all()
+        return [_match_to_dict(m) for m in matches]
+
+
+def get_pending_matches_with_user_predictions(user_id: int) -> List[Dict]:
+    with session_scope() as session:
+        matches = session.scalars(
+            select(Match).where(Match.status == "scheduled").order_by(Match.id)
+        ).all()
+        predictions = {
+            p.match_id: p
+            for p in session.scalars(
+                select(Prediction).where(Prediction.user_id == user_id, Prediction.match_id.in_([m.id for m in matches]))
+            ).all()
+        }
+        result = []
+        for match in matches:
+            pred = predictions.get(match.id)
+            result.append(
+                {
+                    "id": match.id,
+                    "team1": match.team1,
+                    "team2": match.team2,
+                    "predicted": bool(pred),
+                    "pred_score1": pred.pred_score1 if pred else None,
+                    "pred_score2": pred.pred_score2 if pred else None,
+                }
+            )
+        return result
+
+
+def append_prediction(match_id: int, user_id: int, username: str, score1: int, score2: int) -> None:
+    with session_scope() as session:
+        _ensure_user(session, user_id, username)
+        prediction = Prediction(
+            user_id=user_id,
+            match_id=match_id,
+            pred_score1=score1,
+            pred_score2=score2,
+        )
+        session.add(prediction)
+        try:
+            session.flush()
+        except IntegrityError:
+            session.rollback()
+            raise ValueError("prediction_exists")
+
+
+def get_user_prediction(match_id: int, user_id: int) -> Optional[Dict]:
+    with session_scope() as session:
+        prediction = session.get(Prediction, {"user_id": user_id, "match_id": match_id})
+        if not prediction:
+            return None
+        return _prediction_to_dict(prediction)
+
+
+def read_predictions() -> List[Dict]:
+    with session_scope() as session:
+        preds = session.scalars(select(Prediction)).all()
+        return [_prediction_to_dict(p) for p in preds]
+
+
+def read_matches() -> List[Dict]:
+    with session_scope() as session:
+        matches = session.scalars(select(Match).order_by(Match.id)).all()
+        return [_match_to_dict(m) for m in matches]
+
+
+def settle_match_points(match_id: int, score1: int, score2: int) -> List[Tuple[int, str, int]]:
+    with session_scope() as session:
+        rules = _get_rules(session)
+        predictions = session.scalars(select(Prediction).where(Prediction.match_id == match_id)).all()
+        awarded: List[Tuple[int, str, int]] = []
+        for pred in predictions:
+            points = _calculate_points(rules, score1, score2, pred.pred_score1, pred.pred_score2)
+            user = session.get(User, pred.user_id)
+            username = user.username if user else ""
+            awarded.append((pred.user_id, username, points))
+        return awarded
 
 
 def leaderboard_rows() -> List[Tuple[int, str, int]]:
-    table = read_leaderboard()
-    ordered = sorted(
-        ((user_id, data["username"], data["points"]) for user_id, data in table.items()),
-        key=lambda entry: entry[2],
-        reverse=True,
-    )
-    return ordered
+    refresh_leaderboard()
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                "SELECT l.user_id, u.username, l.points "
+                "FROM leaderboard l LEFT JOIN users u ON u.id=l.user_id "
+                "ORDER BY l.points DESC"
+            )
+        ).all()
+        return [(row.user_id, row.username, int(row.points or 0)) for row in rows]
 
 
 def average_predictions_per_match(include_finished: bool = True) -> List[Dict]:
-    matches = {match["id"]: match for match in read_matches()}
-    stats: Dict[int, Dict[str, float]] = {}
-    for entry in read_predictions():
-        match_id = entry["match_id"]
-        match = matches.get(match_id)
-        if not match:
-            continue
-        if not include_finished and match.get("status") == "finished":
-            continue
-        data = stats.setdefault(match_id, {"sum1": 0.0, "sum2": 0.0, "count": 0})
-        data["sum1"] += entry["pred_score1"]
-        data["sum2"] += entry["pred_score2"]
-        data["count"] += 1
-    rows: List[Dict] = []
-    for match_id, data in stats.items():
-        match = matches.get(match_id)
-        if not match or data["count"] == 0:
-            continue
-        rows.append(
-            {
-                "match": match,
-                "avg1": data["sum1"] / data["count"],
-                "avg2": data["sum2"] / data["count"],
-                "count": data["count"],
-            }
-        )
-    rows.sort(key=lambda item: item["match"]["id"])
-    return rows
-
-
-def recalculate_prediction_quality() -> None:
-    matches = {match["id"]: match for match in read_matches()}
-    stats: Dict[int, Dict[str, float]] = {}
-    for entry in read_predictions():
-        match = matches.get(entry["match_id"])
-        if not match or match.get("status") != "finished":
-            continue
-        score1 = match.get("score1")
-        score2 = match.get("score2")
-        if score1 is None or score2 is None:
-            continue
-        user_id = entry["user_id"]
-        record = stats.setdefault(
-            user_id,
-            {
-                "username": entry["username"],
-                "predictions": 0,
-                "correct_outcomes": 0,
-                "goal_accuracy_sum": 0.0,
-            },
-        )
-        if entry["username"]:
-            record["username"] = entry["username"]
-        record["predictions"] += 1
-        if _result_type(score1, score2) == _result_type(
-            entry["pred_score1"], entry["pred_score2"]
-        ):
-            record["correct_outcomes"] += 1
-        record["goal_accuracy_sum"] += _goal_accuracy_percent(
-            score1,
-            score2,
-            entry["pred_score1"],
-            entry["pred_score2"],
-        )
-    _write_prediction_result_accuracy(stats)
-    _write_prediction_goal_accuracy(stats)
-
-
-def _write_prediction_result_accuracy(stats: Dict[int, Dict[str, float]]) -> None:
-    lines = [
-        "# user_id|username|predictions|result_accuracy_percent\n"
-    ]
-    for user_id in sorted(stats):
-        data = stats[user_id]
-        predictions = int(data.get("predictions", 0))
-        result_accuracy = (
-            data.get("correct_outcomes", 0) / predictions * 100.0 if predictions else 0.0
-        )
-        lines.append(
-            _dump_line(
-                [
-                    str(user_id),
-                    data.get("username") or "",
-                    str(predictions),
-                    f"{result_accuracy:.2f}",
-                ]
+    with session_scope() as session:
+        stmt = (
+            select(
+                Prediction.match_id,
+                func.avg(Prediction.pred_score1).label("avg1"),
+                func.avg(Prediction.pred_score2).label("avg2"),
+                func.count(Prediction.user_id).label("count"),
             )
+            .join(Match, Match.id == Prediction.match_id)
         )
-    PREDICTION_RESULT_ACCURACY_FILE.write_text("".join(lines), encoding="utf-8")
-
-
-def _write_prediction_goal_accuracy(stats: Dict[int, Dict[str, float]]) -> None:
-    lines = [
-        "# user_id|username|predictions|goal_accuracy_percent\n"
-    ]
-    for user_id in sorted(stats):
-        data = stats[user_id]
-        predictions = int(data.get("predictions", 0))
-        goal_accuracy = (
-            data.get("goal_accuracy_sum", 0.0) / predictions if predictions else 0.0
-        )
-        lines.append(
-            _dump_line(
-                [
-                    str(user_id),
-                    data.get("username") or "",
-                    str(predictions),
-                    f"{goal_accuracy:.2f}",
-                ]
+        if not include_finished:
+            stmt = stmt.where(Match.status != "finished")
+        stmt = stmt.group_by(Prediction.match_id).order_by(Prediction.match_id)
+        rows = session.execute(stmt).all()
+        result = []
+        for row in rows:
+            match = session.get(Match, row.match_id)
+            if not match:
+                continue
+            result.append(
+                {
+                    "match": _match_to_dict(match),
+                    "avg1": row.avg1,
+                    "avg2": row.avg2,
+                    "count": row.count,
+                }
             )
-        )
-    PREDICTION_GOAL_ACCURACY_FILE.write_text("".join(lines), encoding="utf-8")
+        return result
 
 
 def read_prediction_result_accuracy() -> List[Dict]:
-    rows: List[Dict] = []
-    if not PREDICTION_RESULT_ACCURACY_FILE.exists():
-        return rows
-    with PREDICTION_RESULT_ACCURACY_FILE.open(encoding="utf-8") as fh:
-        for line in fh:
-            parts = _parse_line(line)
-            if not parts:
-                continue
-            rows.append(
-                {
-                    "user_id": int(parts[0]),
-                    "username": parts[1],
-                    "predictions": int(parts[2]),
-                    "result_accuracy_percent": float(parts[3]),
-                }
+    with session_scope() as session:
+        rules = _get_rules(session)
+        rows = session.execute(
+            text(
+                """
+                SELECT
+                    p.user_id,
+                    u.username,
+                    COUNT(*) AS predictions,
+                    SUM(
+                        CASE
+                            WHEN m.status='finished' AND m.score1 IS NOT NULL AND m.score2 IS NOT NULL
+                                 AND SIGN(p.pred_score1 - p.pred_score2) = SIGN(m.score1 - m.score2)
+                            THEN 1 ELSE 0 END
+                    )::float / NULLIF(COUNT(*),0) * 100 AS result_accuracy_percent
+                FROM predictions p
+                JOIN matches m ON m.id = p.match_id
+                LEFT JOIN users u ON u.id = p.user_id
+                WHERE m.status='finished'
+                GROUP BY p.user_id, u.username
+                """
             )
-    return rows
+        ).all()
+        return [
+            {
+                "user_id": row.user_id,
+                "username": row.username,
+                "predictions": int(row.predictions),
+                "result_accuracy_percent": float(row.result_accuracy_percent or 0.0),
+            }
+            for row in rows
+        ]
 
 
 def read_prediction_goal_accuracy() -> List[Dict]:
-    rows: List[Dict] = []
-    if not PREDICTION_GOAL_ACCURACY_FILE.exists():
-        return rows
-    with PREDICTION_GOAL_ACCURACY_FILE.open(encoding="utf-8") as fh:
-        for line in fh:
-            parts = _parse_line(line)
-            if not parts:
-                continue
-            rows.append(
+    with session_scope() as session:
+        rows = session.execute(
+            text(
+                """
+                SELECT
+                    p.user_id,
+                    u.username,
+                    COUNT(*) AS predictions,
+                    AVG(100 - 100 * ABS(p.pred_score1 - m.score1) / NULLIF(GREATEST(p.pred_score1, m.score1),1)) AS acc1,
+                    AVG(100 - 100 * ABS(p.pred_score2 - m.score2) / NULLIF(GREATEST(p.pred_score2, m.score2),1)) AS acc2
+                FROM predictions p
+                JOIN matches m ON m.id = p.match_id
+                LEFT JOIN users u ON u.id = p.user_id
+                WHERE m.status='finished' AND m.score1 IS NOT NULL AND m.score2 IS NOT NULL
+                GROUP BY p.user_id, u.username
+                """
+            )
+        ).all()
+        result = []
+        for row in rows:
+            goal_accuracy = ((row.acc1 or 0.0) + (row.acc2 or 0.0)) / 2
+            result.append(
                 {
-                    "user_id": int(parts[0]),
-                    "username": parts[1],
-                    "predictions": int(parts[2]),
-                    "goal_accuracy_percent": float(parts[3]),
+                    "user_id": row.user_id,
+                    "username": row.username,
+                    "predictions": int(row.predictions),
+                    "goal_accuracy_percent": float(goal_accuracy),
                 }
             )
-    return rows
+        return result
+
+
+def recalculate_prediction_quality() -> None:
+    # Aggregates are calculated on the fly; nothing to persist.
+    return None
+
+
+def get_user_prediction_stats(user_id: int) -> Dict[str, float]:
+    refresh_leaderboard()
+    with session_scope() as session:
+        predictions_count = session.scalar(
+            select(func.count()).select_from(Prediction).where(Prediction.user_id == user_id)
+        ) or 0
+        res_acc = next((row for row in read_prediction_result_accuracy() if row["user_id"] == user_id), None)
+        goal_acc = next((row for row in read_prediction_goal_accuracy() if row["user_id"] == user_id), None)
+
+        leaderboard = leaderboard_rows()
+        place = 0
+        points = 0
+        for idx, (uid, _, pts) in enumerate(leaderboard, start=1):
+            if uid == user_id:
+                place = idx
+                points = pts
+                break
+        return {
+            "predictions": predictions_count,
+            "result_accuracy_percent": res_acc["result_accuracy_percent"] if res_acc else 0.0,
+            "goal_accuracy_percent": goal_acc["goal_accuracy_percent"] if goal_acc else 0.0,
+            "place": place,
+            "points": points,
+        }
+
+
+def refresh_leaderboard() -> None:
+    with session_scope() as session:
+        session.execute(text("REFRESH MATERIALIZED VIEW leaderboard"))
+
+
+def _calculate_points(rules: PointsRule, real1: int, real2: int, pred1: int, pred2: int) -> int:
+    if real1 == pred1 and real2 == pred2:
+        return rules.exact_points
+    real_sign = (real1 > real2) - (real1 < real2)
+    pred_sign = (pred1 > pred2) - (pred1 < pred2)
+    if (real1 - real2) == (pred1 - pred2) or real_sign == pred_sign:
+        return rules.result_points
+    return 0
 
 
 def _goal_accuracy_percent(real1: int, real2: int, pred1: int, pred2: int) -> float:
@@ -526,39 +450,32 @@ def _single_score_accuracy(real: int, predicted: int) -> float:
     return max(0.0, accuracy)
 
 
-def get_user_prediction_stats(user_id: int) -> Dict[str, float]:
-    recalculate_prediction_quality()
-    result_accuracy = 0.0
-    goal_accuracy = 0.0
-    predictions = 0
-    points = 0
-    place = 0
+def _ensure_user(session: Session, user_id: int, username: str) -> None:
+    user = session.get(User, user_id)
+    if not user:
+        session.add(User(id=user_id, username=username))
+    elif username and user.username != username:
+        user.username = username
 
-    for row in read_prediction_result_accuracy():
-        if row["user_id"] == user_id:
-            result_accuracy = row["result_accuracy_percent"]
-            predictions = row["predictions"]
-            break
 
-    for row in read_prediction_goal_accuracy():
-        if row["user_id"] == user_id:
-            goal_accuracy = row["goal_accuracy_percent"]
-            break
-
-    for idx, (row_user_id, _, row_points) in enumerate(leaderboard_rows(), start=1):
-        if row_user_id == user_id:
-            place = idx
-            points = row_points
-            break
-
+def _match_to_dict(match: Match) -> Dict:
     return {
-        "predictions": predictions,
-        "result_accuracy_percent": result_accuracy,
-        "goal_accuracy_percent": goal_accuracy,
-        "place": place,
-        "points": points,
+        "id": match.id,
+        "team1": match.team1,
+        "team2": match.team2,
+        "score1": match.score1,
+        "score2": match.score2,
+        "status": match.status,
+        "started_at": match.started_at,
     }
 
 
-# Підтримуємо файл статистики у синхронному стані при імпорті модуля.
-recalculate_prediction_quality()
+def _prediction_to_dict(pred: Prediction) -> Dict:
+    return {
+        "match_id": pred.match_id,
+        "user_id": pred.user_id,
+        "username": getattr(pred.user, "username", None),
+        "pred_score1": pred.pred_score1,
+        "pred_score2": pred.pred_score2,
+        "timestamp": pred.created_at.isoformat(),
+    }
